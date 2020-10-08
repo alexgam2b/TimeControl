@@ -1,0 +1,5 @@
+.vs/*
+timecontrol/bin/*
+timecontrol/obj/*
+timecontrol.tests/bin/*
+timecontrol.tests/obj/*
