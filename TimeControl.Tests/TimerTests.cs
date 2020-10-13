@@ -9,68 +9,78 @@ namespace TimeControl.Tests
     [TestClass]
     public class TimerTests
     {
+        private Random rnd = new Random();
+        private int interval = 50;
+
         [TestMethod]
         public void TestCreation()
         {
             ITimer timer = new Timer();
-            Assert.AreEqual(new TimeSpan(), timer.ElapsedTime);
+            Assert.AreEqual(new TimeSpan(), timer.GetElapsedTime());
         }
 
         [TestMethod]
         public void TestCreationWithTime()
         {
-            TimeSpan state = new TimeSpan(0, 40, 20);
+            TimeSpan state = new TimeSpan(0, 20, 205);
             ITimer timer = new Timer(state);
-            Assert.AreEqual(state, timer.ElapsedTime);
+            Assert.AreEqual(state, timer.GetElapsedTime());
         }
 
-        private readonly object ConsoleWriterLock = new object();
         [TestMethod]
-        public void TestStart() // Need starts many times
+        public void TestStart()
         {
-            Random rnd = new Random();
-            Parallel.For(1, 3, i =>
-            {
-                ITimer timer = new Timer();
-                timer.Start();
-                int delay;
-                lock (rnd)
-                {
-                    delay = Timer.Interval * rnd.Next(1, 11);
-                }
-                Thread.Sleep(delay);
-                lock (ConsoleWriterLock)
-                {
-                    Console.WriteLine($"Thread: { Thread.CurrentThread.ManagedThreadId }");
-                    Console.WriteLine($"Delay: { delay }");
-                    Console.WriteLine($"Timer: { timer.ElapsedTime.TotalMilliseconds }");
-                }
-                Assert.IsTrue(Math.Abs(timer.ElapsedTime.TotalMilliseconds - delay) < Timer.Interval);
-            });
-            
+            ITimer timer = new Timer();
+            timer.Interval = interval;
+            timer.Start();
+            int delay = timer.Interval * rnd.Next(1, 11);
+            Thread.Sleep(delay);
+            int elapsed = Convert.ToInt32(timer.GetElapsedTime().TotalMilliseconds);
+            Console.WriteLine($"Delay  : { delay }");
+            Console.WriteLine($"Elapsed: { elapsed }");
+            Assert.IsTrue(timer.IsRunning);
+            Assert.IsTrue(Math.Abs(elapsed - delay) < timer.Interval);
         }
 
         [TestMethod]
         public void TestStop()
         {
             ITimer timer = new Timer();
+            timer.Interval = interval;
             timer.Start();
-            Thread.Sleep(2000);
+            int delay = timer.Interval * rnd.Next(1, 11);
+            Thread.Sleep(delay);
             timer.Stop();
-            TimeSpan current = timer.ElapsedTime;
-            Thread.Sleep(2000);
-            Assert.AreEqual(current, timer.ElapsedTime);
+            TimeSpan elapsed = timer.GetElapsedTime();
+            Thread.Sleep(timer.Interval * 2);
+            Assert.IsFalse(timer.IsRunning);
+            Assert.AreEqual(elapsed, timer.GetElapsedTime());
         }
 
         [TestMethod]
         public void TestReset()
         {
             ITimer timer = new Timer();
+            timer.Interval = interval;
             timer.Start();
             Thread.Sleep(2000);
             timer.Reset();
             Thread.Sleep(2000);
-            Assert.AreEqual(new TimeSpan(), timer.ElapsedTime);
+            Assert.AreEqual(new TimeSpan(), timer.GetElapsedTime());
+        }
+
+        [TestMethod]
+        public void TestTicks()
+        {
+            int count = 0;
+            ITimer timer = new Timer();
+            timer.Interval = interval;
+            timer.Tick += (s, e) => { count++; };
+            timer.Start();
+            int delay = timer.Interval * 5;
+            Thread.Sleep(delay);
+            Console.WriteLine($"Count: { count }");
+            Assert.IsTrue(Math.Abs(5 - count) <= 1);
         }
     }
 }

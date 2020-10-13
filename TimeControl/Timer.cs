@@ -1,71 +1,94 @@
 ﻿using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Navigation;
-using System.Xml.Serialization;
 
 namespace TimeControl
 {
     public interface ITimer
     {
-        TimeSpan ElapsedTime { get; }
+        int Interval { get; set; }
+        bool IsRunning { get; }
+
+        TimeSpan GetElapsedTime();
         void Reset();
         void Start();
         void Stop();
+
+        event EventHandler<TimerEventArgs> Tick;
     }
 
-    [Serializable]
+    public class TimerEventArgs: EventArgs { }
+
     public sealed class Timer: ITimer
     {
-        public const int Interval = 1000;
-
-        private CancellationTokenSource cts;
-        private Task task;
         private TimeSpan elapsedTime;
-        private bool running;
+        private DateTime startedTime;
+        private CancellationTokenSource cts;
 
-        public TimeSpan ElapsedTime
+        /// <summary>
+        /// Interval in milliseconds.
+        /// </summary>
+        public int Interval { get; set; }
+        public bool IsRunning { get; private set; }
+
+        public event EventHandler<TimerEventArgs> Tick;
+
+        public Timer(TimeSpan elapsed = new TimeSpan())
         {
-            get { return elapsedTime; }
+            Interval = 1000;
+            IsRunning = false;
+            startedTime = new DateTime();
+            elapsedTime = elapsed;
         }
 
-        public Timer(TimeSpan elapsedTime = new TimeSpan())
+        ~Timer()
         {
-            running = false;
-            this.elapsedTime = elapsedTime;
+            cts?.Dispose();
         }
 
         public void Start()
         {
-            if (!running)
+            if (!IsRunning)
             {
+                IsRunning = true;
+                startedTime = DateTime.Now - elapsedTime;
                 cts = new CancellationTokenSource();
-                task = Task.Run(() => StartTimer(cts.Token));
-                running = true;
+                Task.Run(() => StartTimer(cts.Token));
             }
         }
 
         private void StartTimer(CancellationToken token)
         {
-            DateTime start = DateTime.Now - elapsedTime;
-            while (token.IsCancellationRequested == false)
+            while (!token.IsCancellationRequested)
             {
                 Thread.Sleep(Interval);
-                elapsedTime = DateTime.Now - start;
+                Tick?.Invoke(this, new TimerEventArgs());
             }
         }
 
         public void Stop()
         {
-            if (running)
+            if (IsRunning)
             {
+                IsRunning = false;
+                SetElapsedTime();
                 cts.Cancel();
                 cts.Dispose();
-                task.Wait();
-                running = false;
             }
+        }
+
+        public TimeSpan GetElapsedTime()
+        {
+            if (IsRunning)
+            {
+                SetElapsedTime();
+            }
+            return elapsedTime;
+        }
+
+        private void SetElapsedTime()
+        {
+            elapsedTime = DateTime.Now - startedTime;
         }
 
         public void Reset()
