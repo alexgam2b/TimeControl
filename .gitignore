@@ -1,5 +1,6 @@
 .vs/*
 packages/*
+TestResults/*
 timecontrol/bin/*
 timecontrol/obj/*
 timecontrol.tests/bin/*
